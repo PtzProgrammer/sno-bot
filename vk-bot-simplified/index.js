@@ -3,6 +3,21 @@
  * Версия без ЛитБота (ГОСТ функций)
  */
 const axios = require('axios');
+const logger = require('./src/utils/logger');
+const CursorIntegration = require('./src/utils/cursorIntegration');
+const LogRoutes = require('./src/routes/logRoutes');
+
+// Инициализация интеграции с Cursor
+const cursorIntegration = new CursorIntegration({
+  updateInterval: 3000, // Обновление каждые 3 секунды
+  maxLogsInFile: 500
+});
+
+// Запускаем интеграцию с Cursor
+cursorIntegration.start();
+
+// Инициализация маршрутов логов
+const logRoutes = new LogRoutes(cursorIntegration);
 
 // Конфигурация
 const config = {
@@ -178,13 +193,13 @@ async function sendMessage(peerId, message, keyboard = null) {
     );
 
     if (response.data.error) {
-      console.error('❌ VK API Error:', response.data.error);
+      logger.vkError(response.data.error, { peerId, message });
       return null;
     }
 
     return response.data.response;
   } catch (error) {
-    console.error('❌ Send message error:', error.message);
+    logger.vkError(error, { peerId, message, operation: 'sendMessage' });
     return null;
   }
 }
@@ -214,12 +229,14 @@ function getIntentFromText(text) {
 
 // Обработка сообщений в режиме ИИ помощника
 async function handleAIHelperMessage(peerId, userId, userMessage) {
+  const startTime = Date.now();
+  
   try {
-    console.log(`🧠 Обработка ИИ сообщения от пользователя ${userId}: "${userMessage}"`);
+    logger.aiRequest(userId, userMessage);
     
     // Проверяем, включен ли GigaChat
     if (!config.GIGACHAT_ENABLED) {
-      console.log('❌ GigaChat отключен в настройках');
+      logger.warn('GigaChat отключен в настройках', { userId });
       await sendMessage(peerId, 
         '❌ ИИ помощник временно недоступен.\n\nПопробуйте другие функции бота или обратитесь позже.',
         createBackToMenuKeyboard()
@@ -230,19 +247,19 @@ async function handleAIHelperMessage(peerId, userId, userMessage) {
     // Показываем индикатор "печатает"
     await sendMessage(peerId, '🧠 Обрабатываю ваш вопрос...');
     
-    console.log('🤖 Отправляем запрос в GigaChat...');
+    logger.debug('Отправляем запрос в GigaChat', { userId });
     
     // Получаем ответ от GigaChat (упрощенная версия)
     const aiResponse = await getGigaChatResponse(userMessage);
     
     if (aiResponse) {
-      console.log('✅ Получен ответ от GigaChat');
+      logger.info('Получен ответ от GigaChat', { userId, responseLength: aiResponse.length });
       await sendMessage(peerId, 
         `🧠 ${aiResponse}`,
         createBackToMenuKeyboard()
       );
     } else {
-      console.log('❌ Пустой ответ от GigaChat');
+      logger.warn('Пустой ответ от GigaChat, используем fallback', { userId });
       const fallbackResponse = getFallbackAIResponse(userMessage);
       await sendMessage(peerId, 
         `🧠 ${fallbackResponse}`,
@@ -250,12 +267,15 @@ async function handleAIHelperMessage(peerId, userId, userMessage) {
       );
     }
   } catch (error) {
-    console.error('❌ AI Helper error:', error);
+    logger.error('AI Helper error', { error: error.message, userId, userMessage });
     const fallbackResponse = getFallbackAIResponse(userMessage);
     await sendMessage(peerId, 
       `🧠 ${fallbackResponse}`,
       createBackToMenuKeyboard()
     );
+  } finally {
+    const duration = Date.now() - startTime;
+    logger.performance('AI Helper Message', duration, { userId });
   }
 }
 
@@ -263,16 +283,16 @@ async function handleAIHelperMessage(peerId, userId, userMessage) {
 async function getGigaChatResponse(userMessage) {
   try {
     if (!config.GIGACHAT_CREDENTIALS) {
-      console.log('❌ GigaChat credentials не настроены');
+      logger.warn('GigaChat credentials не настроены');
       return null;
     }
 
     // Здесь должна быть логика работы с GigaChat API
     // Для упрощенной версии используем заглушку
-    console.log('⚠️ GigaChat API не реализован в упрощенной версии');
+    logger.debug('GigaChat API не реализован в упрощенной версии');
     return null;
   } catch (error) {
-    console.error('❌ GigaChat error:', error);
+    logger.error('GigaChat error', { error: error.message, userMessage });
     return null;
   }
 }
@@ -328,46 +348,49 @@ async function processMessage(message) {
   const userId = message.from_id;
   const messageText = message.text || '';
 
+  // Логируем входящее сообщение
+  logger.vkMessage(userId, messageText, 'received');
+  
   // Обработка payload (приоритет выше, чем обработка текста)
   if (message.payload) {
     try {
       const payload = JSON.parse(message.payload);
-      console.log(`🔘 Обработка payload: ${JSON.stringify(payload)}`);
+      logger.debug('Обработка payload', { payload, userId });
       
       // Обработка интентов
       if (payload.intent) {
-        console.log(`🎯 Обрабатываем intent: ${payload.intent}`);
+        logger.info('Обрабатываем intent', { intent: payload.intent, userId });
         await handleIntent(payload.intent, peerId, userId);
         return;
       }
     } catch (error) {
-      console.error('❌ Error parsing payload:', error);
+      logger.error('Error parsing payload', { error: error.message, payload: message.payload, userId });
     }
   }
   
   // Обработка текста
   if (message.text) {
-    console.log(`📝 Обработка текста: "${message.text}"`);
+    logger.debug('Обработка текста', { text: message.text, userId });
     
     // Проверка на простые приветствия
     const lowerText = message.text.toLowerCase().trim();
     if (lowerText === 'привет' || lowerText === 'hello' || lowerText === 'hi' || lowerText === 'здравствуйте') {
-      console.log('👋 Простое приветствие, показываем главное меню');
+      logger.info('Простое приветствие, показываем главное меню', { userId });
       await handleIntent('приветствие', peerId, userId);
       return;
     }
     
     // Проверка, находится ли пользователь в режиме ИИ помощника
     if (aiHelperUsers.has(userId) && messageText && !messageText.startsWith('/')) {
-      console.log('🧠 Пользователь в режиме ИИ, обрабатываем...');
+      logger.info('Пользователь в режиме ИИ, обрабатываем', { userId });
       await handleAIHelperMessage(peerId, userId, messageText);
       return;
     }
     
     // Определяем интент
-    console.log('🔍 Определяем интент...');
+    logger.debug('Определяем интент', { text: message.text, userId });
     const intent = getIntentFromText(message.text);
-    console.log(`📋 Определен интент: ${intent}`);
+    logger.info('Определен интент', { intent, userId });
     
     if (intentResponses[intent]) {
       await handleIntent(intent, peerId, userId);
@@ -375,20 +398,28 @@ async function processMessage(message) {
     }
     
     // Если интент не определен, отправляем приветствие
+    logger.warn('Интент не определен, отправляем приветствие', { text: message.text, userId });
     await handleIntent('приветствие', peerId, userId);
   }
 }
 
 // Главный обработчик для Cloud Function
 module.exports.handler = async (event, context) => {
+  const startTime = Date.now();
+  
   try {
     const body = JSON.parse(event.body || '{}');
     
-    console.log('📨 Received event:', JSON.stringify(body, null, 2));
+    logger.info('Received event', { 
+      type: body.type, 
+      hasObject: !!body.object,
+      httpMethod: event.httpMethod,
+      path: event.path 
+    });
 
     // Подтверждение сервера
     if (body.type === 'confirmation') {
-      console.log('🔐 Confirmation request received');
+      logger.info('Confirmation request received');
       return {
         statusCode: 200,
         body: config.VK_CONFIRMATION_TOKEN
@@ -397,14 +428,20 @@ module.exports.handler = async (event, context) => {
 
     // Обработка нового сообщения
     if (body.type === 'message_new') {
-      console.log('📩 New message received');
+      logger.info('New message received', { 
+        userId: body.object?.message?.from_id,
+        peerId: body.object?.message?.peer_id 
+      });
       
       // Асинхронная обработка сообщения
       setImmediate(async () => {
         try {
           await processMessage(body.object.message);
         } catch (error) {
-          console.error('❌ Error processing message:', error);
+          logger.error('Error processing message', { 
+            error: error.message, 
+            message: body.object?.message 
+          });
         }
       });
 
@@ -416,31 +453,51 @@ module.exports.handler = async (event, context) => {
 
     // Health check
     if (event.httpMethod === 'GET' && event.path === '/health') {
+      const healthData = {
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        bot: 'СНО СПб ЮИ УП РФ (упрощенная версия)',
+        environment: 'yandex-cloud-function',
+        stats: logger.getStats()
+      };
+      
+      logger.info('Health check requested', { stats: healthData.stats });
+      
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'OK',
-          timestamp: new Date().toISOString(),
-          version: '1.0.0',
-          bot: 'СНО СПб ЮИ УП РФ (упрощенная версия)',
-          environment: 'yandex-cloud-function'
-        })
+        body: JSON.stringify(healthData)
       };
     }
 
+    // Обработка маршрутов логов
+    if (event.path && event.path.startsWith('/logs')) {
+      return logRoutes.handleLogRoutes(event, context);
+    }
+
     // Неизвестный тип события
-    console.log('⚠️ Unknown event type:', body.type);
+    logger.warn('Unknown event type', { type: body.type });
     return {
       statusCode: 200,
       body: 'ok'
     };
 
   } catch (error) {
-    console.error('❌ Handler error:', error);
+    logger.error('Handler error', { 
+      error: error.message, 
+      stack: error.stack,
+      event: event 
+    });
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal server error' })
     };
+  } finally {
+    const duration = Date.now() - startTime;
+    logger.performance('Handler Request', duration, { 
+      type: body?.type,
+      httpMethod: event.httpMethod 
+    });
   }
 };

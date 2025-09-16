@@ -1,0 +1,75 @@
+{
+  "timestamp": "2025-09-16T12:42:28.995Z",
+  "stats": {
+    "total": 31,
+    "byLevel": {
+      "info": 27,
+      "warn": 1,
+      "error": 3
+    },
+    "byHour": {
+      "15": 31
+    },
+    "errors": [
+      {
+        "timestamp": "2025-09-16T12:42:23.983Z",
+        "message": "Тестовая ошибка",
+        "meta": {
+          "test": "error"
+        }
+      },
+      {
+        "timestamp": "2025-09-16T12:42:23.984Z",
+        "message": "VK API Error",
+        "meta": {
+          "error": "VK API недоступен",
+          "context": {
+            "userId": 12345
+          }
+        }
+      },
+      {
+        "timestamp": "2025-09-16T12:42:23.992Z",
+        "message": "Поймана тестовая ошибка",
+        "meta": {
+          "error": "Тестовая ошибка для логирования",
+          "stack": "Error: Тестовая ошибка для логирования\n    at Object.<anonymous> (/Users/artem/openai-gpt-image-mcp/vk-bot-simplified/test-logging.js:55:9)\n    at Module._compile (node:internal/modules/cjs/loader:1688:14)\n    at Object..js (node:internal/modules/cjs/loader:1820:10)\n    at Module.load (node:internal/modules/cjs/loader:1423:32)\n    at Function._load (node:internal/modules/cjs/loader:1246:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49",
+          "test": "exception"
+        }
+      }
+    ],
+    "logLevel": "info",
+    "uptime": 5.107717125,
+    "memory": {
+      "rss": 55328768,
+      "heapTotal": 6422528,
+      "heapUsed": 4469264,
+      "external": 1504010,
+      "arrayBuffers": 10515
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2025-09-16T12:42:27.995Z",
+      "level": "info",
+      "message": "Очистка логов завершена",
+      "meta": {
+        "deletedFiles": 2,
+        "cutoffDate": "2025-09-16T12:42:27.994Z"
+      }
+    }
+  ],
+  "system": {
+    "nodeVersion": "v22.18.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "uptime": 5.107959333,
+    "memory": {
+      "rss": 55328768,
+      "heapTotal": 6422528,
+      "heapUsed": 4474432,
+      "external": 1504010,
+      "arrayBuffers": 10515
+    }
+  }
+}
