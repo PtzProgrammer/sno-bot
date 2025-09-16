@@ -1,0 +1,26 @@
+{
+  "name": "vk-sno-bot-simplified",
+  "version": "1.0.0",
+  "description": "Упрощенная версия VK бота для СНО СПбЮИ(ф) УП РФ без ЛитБота",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^17.2.2"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test-local.js",
+    "deploy": "./deploy.sh",
+    "update-responses": "node update-responses.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "vk-bot",
+    "sno",
+    "academic",
+    "yandex-cloud",
+    "simplified"
+  ]
+}
